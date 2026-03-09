@@ -44,8 +44,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     await update.message.reply_text(
-        "👋 Halo! Saya Bot Manajemen OLT.\n"
-        "Gunakan perintah /onu untuk mulai mengecek status ONU."
+        "👋 Halo! Saya Bot Manajemen OLT.\n\n"
+        "💡 <b>Tips Grup:</b> Jika saya tidak merespon di grup, pastikan fitur <i>Privacy Mode</i> dimatikan di @BotFather atau jadikan saya Admin grup.\n\n"
+        "Gunakan perintah /onu untuk mulai mengecek status ONU.",
+        parse_mode='HTML'
     )
 
 async def onu_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
