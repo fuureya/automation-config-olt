@@ -1,2 +1,4 @@
 python-dotenv
 telnetlib3
+python-telegram-bot
+python-dotenv
