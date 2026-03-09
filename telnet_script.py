@@ -58,7 +58,10 @@ async def telnet_client():
         
         # Send test command
         await asyncio.sleep(0.5)
-        writer.write('show version\r')
+        writer.write('enable \r')
+
+        await asyncio.sleep(0.5)
+        writer.write('conf \r')
         
         # Read response for a bit
         await expect('>', timeout=5)
