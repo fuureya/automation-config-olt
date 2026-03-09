@@ -57,9 +57,11 @@ async def query_onu_status(sn: str = None):
         # 3. Specific Query
         await expect(reader, '(config)#')
         if sn:
-            cmd = f'show onu by-sn {sn}\r'
+            cmd = f'show ont info by-sn {sn}\r'
+            output_log.append(f"[Command] {cmd.strip()}\n")
         else:
             cmd = 'show version\r' # fallback
+            output_log.append(f"[Command] {cmd.strip()}\n")
             
         writer.write(cmd)
         
@@ -70,8 +72,10 @@ async def query_onu_status(sn: str = None):
         writer.close()
         return "".join(output_log)
 
+    except asyncio.TimeoutError:
+        return f"Error: Timeout saat menunggu respon dari OLT. Log sementara:\n{''.join(output_log)}"
     except Exception as e:
-        return f"Error: {str(e)}"
+        return f"Error: {str(e)}\nLog sementara:\n{''.join(output_log)}"
 
 if __name__ == "__main__":
     # Test execution
