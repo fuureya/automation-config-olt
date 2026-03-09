@@ -51,7 +51,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def onu_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler for /onu command."""
+    """Handler for /onu command. Supports both /onu and /onu <SN>."""
     user_id = str(update.effective_user.id)
     logging.info(f"Incoming /onu from user_id: {user_id}")
     
@@ -60,14 +60,26 @@ async def onu_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"⛔ Akses ditolak. ID Anda ({user_id}) tidak terdaftar.")
         return ConversationHandler.END
 
-    await update.message.reply_text("🔍 Silakan masukkan Serial Number (SN) ONU:")
-    return WAITING_FOR_SN
+    # Check for direct arguments (e.g. /onu CDTCAF6A07E1)
+    if context.args:
+        sn = context.args[0].strip()
+        await process_onu_query(update, sn)
+        return ConversationHandler.END
+    else:
+        # Ask for SN if no argument provided
+        await update.message.reply_text("🔍 Silakan masukkan Serial Number (SN) ONU:")
+        return WAITING_FOR_SN
 
 async def handle_sn(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handles the SN input and queries the OLT."""
+    """Handles the SN input from message (non-command)."""
     sn = update.message.text.strip()
+    await process_onu_query(update, sn)
+    return ConversationHandler.END
+
+async def process_onu_query(update: Update, sn: str):
+    """Core logic to query OLT and reply to user."""
     user_id = str(update.effective_user.id)
-    logging.info(f"Received SN: '{sn}' from user_id: {user_id}")
+    logging.info(f"Processing SN: '{sn}' for user_id: {user_id}")
     
     # Feedback awal ke user
     await update.message.reply_text(f"🔍 Input diterima: <code>{sn}</code>\n⏳ Sedang diproses ke OLT...", parse_mode='HTML')
@@ -89,6 +101,7 @@ async def handle_sn(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(error_msg, parse_mode='HTML')
         logging.error(f"Error in handle_sn: {e}")
 
+    await update.message.reply_text("✨ <b>Perintah ini telah selesai dikerjakan oleh ch'en bot.</b>", parse_mode='HTML')
     return ConversationHandler.END
 
 async def debug_catcher(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -103,7 +116,6 @@ async def debug_catcher(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Ends the conversation."""
     await update.message.reply_text("Selesai.")
-    return ConversationHandler.END
 
 if __name__ == "__main__":
     if not TOKEN or TOKEN == "YOUR_BOT_TOKEN_HERE":
@@ -127,13 +139,20 @@ if __name__ == "__main__":
 
     app = ApplicationBuilder().token(TOKEN).post_init(post_init).build()
 
-    # Simplifikasi: Pakai handler biasa dulu, jangan ConversationHandler agar tidak bingung state
+    # Conversation handler for /onu (Strategi B)
+    # Ini memastikan bot hanya nunggu SN setelah disuruh /onu
+    conv_handler = ConversationHandler(
+        entry_points=[CommandHandler("onu", onu_command)],
+        states={
+            WAITING_FOR_SN: [MessageHandler(filters.TEXT & (~filters.COMMAND), handle_sn)],
+        },
+        fallbacks=[CommandHandler("cancel", cancel), CommandHandler("start", start)],
+    )
+
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("onu", onu_command))
-    # Catch-all untuk SN (atau teks apapun)
-    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_sn))
+    app.add_handler(conv_handler)
     
-    # Debug catcher semua
-    app.add_handler(MessageHandler(filters.ALL, debug_catcher), group=-1)
+    # Debug catcher semua (Dipindah ke group tinggi agar tidak mengganggu logic)
+    app.add_handler(MessageHandler(filters.ALL, debug_catcher), group=1)
 
     app.run_polling()
